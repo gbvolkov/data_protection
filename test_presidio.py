@@ -1,5 +1,5 @@
 import json
-from pprint import pprint
+from pprint import pprint, PrettyPrinter
 from typing import Tuple, List, Optional
 
 from presidio_analyzer import (
@@ -9,6 +9,7 @@ from presidio_analyzer import (
     PatternRecognizer,
     Pattern,
 )
+from presidio_anonymizer.entities import OperatorConfig
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 from presidio_analyzer.nlp_engine import (
@@ -174,18 +175,37 @@ def get_supported_entities(
 
 text_to_anonymize = """Клиент Степан Степанов обратился в компанию с предложением купить трактор. 
 Для оплаты используется его карта 4095260993934932. 
-Позвоните ему 9867777777.
+Позвоните ему 9867777777 или 9857777237.
 Или можно по адресу г. Санкт-Петербург, Сенная Площадь, 1/2кв17
-Посмотреть ега данные можно https://client.ileasing/name=stapanov:3000 или зайти на 182.34.35.12/
+Посмотреть его данные можно https://client.ileasing.ru/name=stapanov:3000 или зайти на 182.34.35.12/
 
 """
 #print(get_supported_entities("huggingface", "51la5/roberta-large-NER", None, None)) #flair/ner-english-large
 
 analyzer = analyzer_engine("huggingface", "51la5/roberta-large-NER")
 #analyzer = analyzer_engine("flair", "flair/ner-english-large")
-analyzer_results = analyzer.analyze(text=text_to_anonymize, language='en')
+analyzer_results = analyzer.analyze(text=text_to_anonymize, language='en', return_decision_process=True)
 
 #print(analyzer_results)
-pii_data = [(text_to_anonymize[res.start:res.end], res.start, res.end, res.entity_type, res.score) for res in analyzer_results]
+pii_data = [(text_to_anonymize[res.start:res.end], res.start, res.end, res.entity_type, res.score, res.analysis_explanation) 
+            for res in analyzer_results]
 
 pprint(pii_data)
+
+
+#decision_process = analyzer_results[0].analysis_explanation
+#pp = PrettyPrinter()
+#print("Decision process output:\n")
+#pp.pprint(decision_process.__dict__)
+
+# Initialize the engine:
+engine = AnonymizerEngine()
+
+result = engine.anonymize(
+    text=text_to_anonymize,
+    analyzer_results=analyzer_results,
+    #operators={"PERSON": OperatorConfig("replace", {"new_value": "BIP"})},
+    operators={"PERSON": OperatorConfig("encrypt", {"key": "WmZq4t7w!z%C&F)J"})},
+)
+
+print(result)
