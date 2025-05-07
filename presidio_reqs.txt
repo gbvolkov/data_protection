@@ -1,3 +1,7 @@
+python-dotenv
+
+langchain_mistralai
+
 presidio_analyzer[transformers]
 presidio_anonymizer
 flair

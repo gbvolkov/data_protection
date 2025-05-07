@@ -9,6 +9,8 @@ from presidio_anonymizer.operators import Decrypt
 from fakers import *
 from analyser_engine import analyzer_engine
 
+from text_transformation import transform_text
+
 text_to_anonymize = """Клиент Степан Степанов (4519227557) по поручению Ивана Иванова обратился в компанию с предложением купить трактор. 
 Для оплаты используется его карта 4095260993934932. 
 Позвоните ему 9867777777 или 9857777237.
@@ -18,6 +20,8 @@ text_to_anonymize = """Клиент Степан Степанов (4519227557) �
 """
 #print(get_supported_entities("huggingface", "51la5/roberta-large-NER", None, None)) #flair/ner-english-large
 
+print("========Initial text========")
+print(text_to_anonymize)
 
 #analyzer = analyzer_engine("huggingface", "51la5/roberta-large-NER")
 analyzer = analyzer_engine("huggingface", "Gherman/bert-base-NER-Russian")
@@ -33,6 +37,7 @@ analyzer_results = analyzer.analyze(text=text_to_anonymize, entities=entities, l
 pii_data = [(text_to_anonymize[res.start:res.end], res.start, res.end, res.entity_type, res.score, res.analysis_explanation) 
             for res in analyzer_results]
 
+print("========Recognised entities========")
 pprint(pii_data)
 
 
@@ -63,11 +68,15 @@ result = engine.anonymize(
                "URL": OperatorConfig("custom", {"lambda": fake_url}),
                })
 
-print(result.text)
+anonimized_text = result.text
 
+print("========Anonimized text========")
+print(anonimized_text)
+
+print("========Anonimized entities========")
 pprint(result.items)
 
-def decrypt(item):
+def deanonimize(item):
     if item.operator=="encrypt":
         return Decrypt().operate(text=item.text, params={"key": "WmZq4t7w!z%C&F)J"})
     elif item.operator=="custom":
@@ -75,14 +84,28 @@ def decrypt(item):
     else:
         return item.text
 
-decrypted = [
-    {**item.to_dict(), 'restored': decrypt(item)}
+#Deanonimizing entities
+deanonimized_entities = [
+    {**item.to_dict(), 'restored': deanonimize(item)}
     for item in result.items]
-pprint(decrypted)
 
-text = result.text
+print("========DeAnonimized entities========")
+pprint(deanonimized_entities)
 
-for item in decrypted:
-    text = text.replace(item["text"], item["restored"])
 
-print(text)
+#Restore deanonimized entities within text
+llm_answer = transform_text(anonimized_text)
+print("========LLM answer========")
+print(llm_answer)
+
+for item in deanonimized_entities:
+    llm_answer  = llm_answer.replace(item["text"], item["restored"])
+
+print("========Restored llm resoponse========")
+print(llm_answer)
+
+deanonimized_text = anonimized_text
+for item in deanonimized_entities:
+    deanonimized_text  = deanonimized_text.replace(item["text"], item["restored"])
+print("========Restored text========")
+print(deanonimized_text)
