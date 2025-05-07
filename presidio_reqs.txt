@@ -1,3 +1,4 @@
 presidio_analyzer[transformers]
 presidio_anonymizer
 flair
+faker
