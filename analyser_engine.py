@@ -42,8 +42,8 @@ def create_nlp_engine_with_transformers(
                 #"DISTRICT": "DISTRICT",
                 "STREET": "STREET",
                 "HOUSE": "HOUSE",
-                "PER": "PERSON",
-                "PERSON": "PERSON",
+                #"PER": "PERSON",
+                #"PERSON": "PERSON",
                 "LOC": "LOCATION",
                 "LOCATION": "LOCATION",
                 "GPE": "LOCATION",
@@ -87,13 +87,13 @@ def create_nlp_engine_with_transformers(
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
     ## Руcская модель распознаёт URL, у которого внутри фамилия, как LAST_NAME - повышаем приоритет распознавателю URL
     # 1) Удаляем встроенный URL-распознаватель (если он уже был загружен)
-    recogniser = registry.get_recognizers("en", ["URL"])[0]
-    registry.remove_recognizer(recogniser.name)
-    for pattern in recogniser.patterns:
-        pattern.score = pattern.score + 0.36   # bump to near‐max confidence
+    #recogniser = registry.get_recognizers("en", ["URL"])[0]
+    #registry.remove_recognizer(recogniser.name)
+    #for pattern in recogniser.patterns:
+    #    pattern.score = pattern.score + 0.36   # bump to near‐max confidence
 
     ## 3) Регистрируем его в том же Registry
-    registry.add_recognizer(recogniser)
+    #registry.add_recognizer(recogniser)
 
     return nlp_engine, registry
 
@@ -107,7 +107,7 @@ def create_nlp_engine_with_flair(
     would return NlpArtifacts such as POS and lemmas.
     :param model_path: Flair model path.
     """
-    from flair_recognizer import FlairRecognizer
+    from recognisers.flair_recognizer import FlairRecognizer
 
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers()
@@ -129,6 +129,71 @@ def create_nlp_engine_with_flair(
 
     return nlp_engine, registry
 
+def create_nlp_engine_with_natasha(
+    model_path: str,
+) -> Tuple[NlpEngine, RecognizerRegistry]:
+    """
+    Instantiate an NlpEngine with a FlairRecognizer and a small spaCy model.
+    The FlairRecognizer would return results from Flair models, the spaCy model
+    would return NlpArtifacts such as POS and lemmas.
+    :param model_path: Flair model path.
+    """
+    from recognisers.natasha_recogniser import NatashaSlovnetRecognizer
+
+    registry = RecognizerRegistry()
+    registry.load_predefined_recognizers()
+
+    # there is no official Flair NlpEngine, hence we load it as an additional recognizer
+    #spacy_model = "en_core_web_sm"
+    spacy_model = "ru_core_news_sm"
+    if not spacy.util.is_package(spacy_model):
+        spacy.cli.download(spacy_model)
+    # Using a small spaCy model + a Flair NER model
+    natasha_recognizer = NatashaSlovnetRecognizer()
+    nlp_configuration = {
+        "nlp_engine_name": "spacy",
+        #"models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+        "models": [{"lang_code": "en", "model_name": "ru_core_news_sm"}],
+    }
+    registry.add_recognizer(natasha_recognizer)
+    registry.remove_recognizer("SpacyRecognizer")
+
+    nlp_engine = NlpEngineProvider(nlp_configuration=nlp_configuration).create_engine()
+
+    return nlp_engine, registry
+
+def create_nlp_engine_with_gliner(
+    model_path: str,
+) -> Tuple[NlpEngine, RecognizerRegistry]:
+    """
+    Instantiate an NlpEngine with a FlairRecognizer and a small spaCy model.
+    The FlairRecognizer would return results from Flair models, the spaCy model
+    would return NlpArtifacts such as POS and lemmas.
+    :param model_path: Flair model path.
+    """
+    from recognisers.gliner_recogniser import GlinerRecognizer
+
+    registry = RecognizerRegistry()
+    registry.load_predefined_recognizers()
+
+    # there is no official Flair NlpEngine, hence we load it as an additional recognizer
+
+    spacy_model = "ru_core_news_sm"
+    if not spacy.util.is_package(spacy_model):
+        spacy.cli.download(spacy_model)
+    # Using a small spaCy model + a Flair NER model
+    natasha_recognizer = GlinerRecognizer()
+    nlp_configuration = {
+        "nlp_engine_name": "spacy",
+        #"models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+        "models": [{"lang_code": "en", "model_name": "ru_core_news_sm"}],
+    }
+    registry.add_recognizer(natasha_recognizer)
+    registry.remove_recognizer("SpacyRecognizer")
+
+    nlp_engine = NlpEngineProvider(nlp_configuration=nlp_configuration).create_engine()
+
+    return nlp_engine, registry
 
 def nlp_engine_and_registry(
     model_family: str,
@@ -151,6 +216,10 @@ def nlp_engine_and_registry(
         return create_nlp_engine_with_flair(model_path)
     elif "huggingface" in model_family.lower():
         return create_nlp_engine_with_transformers(model_path)
+    elif "natasha" in model_family.lower():
+        return create_nlp_engine_with_natasha(model_path)
+    elif "gliner" in model_family.lower():
+        return create_nlp_engine_with_gliner(model_path)
     else:
         raise ValueError(f"Model family {model_family} not supported")
 

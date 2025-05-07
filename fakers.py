@@ -43,6 +43,10 @@ def fake_city(x):
     faked = fake.city()
     faked_values[faked] = x
     return faked
+def fake_location(x):
+    faked = fake.address()
+    faked_values[faked] = x
+    return faked
 def fake_email(x):
     faked = fake.safe_email()
     faked_values[faked] = x

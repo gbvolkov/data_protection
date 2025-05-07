@@ -4,5 +4,12 @@ langchain_mistralai
 
 presidio_analyzer[transformers]
 presidio_anonymizer
+
+natasha
+#numpy>=1.24.4 
+#thinc==8.1.8
+#spacy==3.6.1
+#deeppavlov>=1.6.0
+gliner
 flair
 faker
