@@ -76,7 +76,7 @@ print(anonimized_text)
 print("========Anonimized entities========")
 pprint(result.items)
 
-def deanonimize(item):
+def deanonimize(item): 
     if item.operator=="encrypt":
         return Decrypt().operate(text=item.text, params={"key": "WmZq4t7w!z%C&F)J"})
     elif item.operator=="custom":

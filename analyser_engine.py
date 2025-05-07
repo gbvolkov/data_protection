@@ -30,7 +30,7 @@ def create_nlp_engine_with_transformers(
             {
                 "lang_code": "en",
                 #"model_name": {"spacy": "en_core_web_sm", "transformers": model_path},
-                "model_name": {"spacy": "ru_core_news_lg", "transformers": model_path},
+                "model_name": {"spacy": "ru_core_news_sm", "transformers": model_path},
             }
         ],
         "ner_model_configuration": {
@@ -42,7 +42,6 @@ def create_nlp_engine_with_transformers(
                 #"DISTRICT": "DISTRICT",
                 "STREET": "STREET",
                 "HOUSE": "HOUSE",
-                "O": "O",
                 "PER": "PERSON",
                 "PERSON": "PERSON",
                 "LOC": "LOCATION",
@@ -86,6 +85,7 @@ def create_nlp_engine_with_transformers(
 
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers(nlp_engine=nlp_engine)
+    ## Руcская модель распознаёт URL, у которого внутри фамилия, как LAST_NAME - повышаем приоритет распознавателю URL
     # 1) Удаляем встроенный URL-распознаватель (если он уже был загружен)
     recogniser = registry.get_recognizers("en", ["URL"])[0]
     registry.remove_recognizer(recogniser.name)
