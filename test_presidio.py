@@ -8,16 +8,15 @@ from presidio_anonymizer.operators import Decrypt
 
 from fakers import *
 from analyser_engine import analyzer_engine
-from recognisers.natasha_recogniser import NatashaSlovnetRecognizer
 
 from text_transformation import transform_text
+from recognizers.regex_recognisers import RU_ENTITIES
 
-text_to_anonymize = """Клиент Степан Степанов (4519227557) по поручению Ивана Иванова обратился в компанию Интерлизинг с предложением купить трактор. 
-Для оплаты используется его карта 4095260993934932. 
+text_to_anonymize = """Клиент Степан Степанов (4519 227557; 112-233-445 95) по поручению Ивана Иванова обратился в компанию Интерлизинг с предложением купить трактор. 
+Для оплаты используется его карта 4095260993934932 или счёт 40817810806266001241. 
 Позвоните ему 9867777777 или 9857777237.
 Или можно по адресу г. Санкт-Петербург, Сенная Площадь, 1/2кв17
 Посмотреть его данные можно https://client.ileasing.ru/name=stapanov:3000 или зайти на 182.34.35.12/
-
 """
 #print(get_supported_entities("huggingface", "51la5/roberta-large-NER", None, None)) #flair/ner-english-large
 
@@ -32,7 +31,7 @@ analyzer = analyzer_engine("gliner", "gliner-community/gliner_large-v2.5")
 #analyzer.registry.add_recognizer(NatashaSlovnetRecognizer())
 recognizers = analyzer.get_recognizers()
 
-entities = analyzer.get_supported_entities() + ["GENERIC_PII"]
+entities = analyzer.get_supported_entities() + ["GENERIC_PII"] + RU_ENTITIES
 entities.remove("IN_PAN")
 
 #analyzer = analyzer_engine("flair", "flair/ner-english-large")
@@ -74,6 +73,10 @@ result = engine.anonymize(
                "PHONE_NUMBER": OperatorConfig("custom", {"lambda": fake_phone}),
                "IP_ADDRESS": OperatorConfig("custom", {"lambda": fake_ip}),
                "URL": OperatorConfig("custom", {"lambda": fake_url}),
+               "RU_PASSPORT": OperatorConfig("custom", {"lambda": fake_passport}),
+               "SNILS": OperatorConfig("custom", {"lambda": fake_snils}),
+               "INN": OperatorConfig("custom", {"lambda": fake_inn}),
+               "RU_BANK_ACC": OperatorConfig("custom", {"lambda": fake_account}),
                })
 
 anonimized_text = result.text
@@ -88,7 +91,7 @@ def deanonimize(item):
     if item.operator=="encrypt":
         return Decrypt().operate(text=item.text, params={"key": "WmZq4t7w!z%C&F)J"})
     elif item.operator=="custom":
-        return faked_values[item.text]
+        return defake(item.text)
     else:
         return item.text
 

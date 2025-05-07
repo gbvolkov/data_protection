@@ -12,6 +12,13 @@ from presidio_analyzer.nlp_engine import (
     NlpEngineProvider,
 )
 import spacy
+from recognizers.regex_recognisers import (
+    ru_internal_passport_recognizer, 
+    SNILSRecognizer,
+    INNRecognizer,
+    RUBankAccountRecognizer
+)
+
 
 def create_nlp_engine_with_transformers(
     model_path: str,
@@ -107,7 +114,7 @@ def create_nlp_engine_with_flair(
     would return NlpArtifacts such as POS and lemmas.
     :param model_path: Flair model path.
     """
-    from recognisers.flair_recognizer import FlairRecognizer
+    from recognizers.flair_recognizer import FlairRecognizer
 
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers()
@@ -138,7 +145,7 @@ def create_nlp_engine_with_natasha(
     would return NlpArtifacts such as POS and lemmas.
     :param model_path: Flair model path.
     """
-    from recognisers.natasha_recogniser import NatashaSlovnetRecognizer
+    from recognizers.natasha_recogniser import NatashaSlovnetRecognizer
 
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers()
@@ -171,7 +178,7 @@ def create_nlp_engine_with_gliner(
     would return NlpArtifacts such as POS and lemmas.
     :param model_path: Flair model path.
     """
-    from recognisers.gliner_recogniser import GlinerRecognizer
+    from recognizers.gliner_recogniser import GlinerRecognizer
 
     registry = RecognizerRegistry()
     registry.load_predefined_recognizers()
@@ -182,13 +189,13 @@ def create_nlp_engine_with_gliner(
     if not spacy.util.is_package(spacy_model):
         spacy.cli.download(spacy_model)
     # Using a small spaCy model + a Flair NER model
-    natasha_recognizer = GlinerRecognizer()
+    gliner_recognizer = GlinerRecognizer()
     nlp_configuration = {
         "nlp_engine_name": "spacy",
         #"models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
         "models": [{"lang_code": "en", "model_name": "ru_core_news_sm"}],
     }
-    registry.add_recognizer(natasha_recognizer)
+    registry.add_recognizer(gliner_recognizer)
     registry.remove_recognizer("SpacyRecognizer")
 
     nlp_engine = NlpEngineProvider(nlp_configuration=nlp_configuration).create_engine()
@@ -213,15 +220,19 @@ def nlp_engine_and_registry(
 
     # Set up NLP Engine according to the model of choice
     if "flair" in model_family.lower():
-        return create_nlp_engine_with_flair(model_path)
+        engine, registry = create_nlp_engine_with_flair(model_path)
     elif "huggingface" in model_family.lower():
-        return create_nlp_engine_with_transformers(model_path)
+        engine, registry = create_nlp_engine_with_transformers(model_path)
     elif "natasha" in model_family.lower():
-        return create_nlp_engine_with_natasha(model_path)
+        engine, registry = create_nlp_engine_with_natasha(model_path)
     elif "gliner" in model_family.lower():
-        return create_nlp_engine_with_gliner(model_path)
+        engine, registry = create_nlp_engine_with_gliner(model_path)
     else:
         raise ValueError(f"Model family {model_family} not supported")
+    
+    registry.add_recognizer(ru_internal_passport_recognizer)
+    registry.add_recognizer(SNILSRecognizer())
+    return engine, registry
 
 
 def analyzer_engine(
@@ -243,6 +254,11 @@ def analyzer_engine(
         model_family, model_path, ta_key, ta_endpoint
     )
     analyzer = AnalyzerEngine(nlp_engine=nlp_engine, registry=registry)
+    analyzer.registry.add_recognizer(ru_internal_passport_recognizer)
+    analyzer.registry.add_recognizer(SNILSRecognizer())
+    analyzer.registry.add_recognizer(INNRecognizer())
+    analyzer.registry.add_recognizer(RUBankAccountRecognizer())
+    
     return analyzer
 
 def get_supported_entities(

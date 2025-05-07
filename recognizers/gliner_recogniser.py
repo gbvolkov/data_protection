@@ -4,7 +4,6 @@ from presidio_analyzer import AnalyzerEngine, EntityRecognizer, RecognizerResult
 
 from gliner import GLiNER
 
-
 class GlinerRecognizer(EntityRecognizer):
     def __init__(
         self,

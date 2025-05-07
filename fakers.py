@@ -1,69 +1,103 @@
 from faker import Faker
+import functools
+import spacy
+import re
+
 fake = Faker(locale="ru-RU")
 
 faked_values = {}
+nlp = spacy.load("ru_core_news_sm")
 
+def calc_hash(text):
+    VOWELS = set("АЕЁИОУЫЭЮЯаеёиоуыэюя")
+    def alnum(s: str) -> str:
+        def strip_vowels(word: str) -> str:
+            while word and word[-1] in VOWELS:
+                word = word[:-1]
+            return word
+        alfanum = ''.join(ch if (ch.isalnum() or ch.isspace()) else " " for ch in s)   
+
+        words = alfanum.split()
+        stripped = [strip_vowels(w) for w in words]
+        return " ".join(stripped)
+    
+    tockens = nlp(text)
+    hash = alnum("".join([token.lemma_ for token in tockens]))
+    return hash
+
+def defake(fake):
+    hash = calc_hash(fake)
+    return faked_values[hash].get('true')
+
+def record_replacement(func):
+
+    @functools.wraps(func)
+    def wrapper(x):
+        if x == "PII":
+            return x
+        fake = func(x)
+        hash = calc_hash(fake)
+        faked_values[hash] = {"true": x, "fake": fake}
+        return fake
+    return wrapper
+
+@record_replacement
+def fake_account(x):
+    return fake.checking_account()
+@record_replacement
+def fake_snils(x):
+    return fake.snils()
+@record_replacement
+def fake_inn(x):
+    return  fake.businesses_inn()
+@record_replacement
+def fake_passport(x):
+    return fake.passport_number()
+@record_replacement
 def fake_name(x):
-    faked = fake.first_name() + " " + fake.last_name()
-    faked_values[faked] = x
-    return faked
+    return fake.first_name() + " " + fake.last_name()
+@record_replacement
 def fake_first_name(x):
-    faked = fake.first_name()
-    faked_values[faked] = x
-    return faked
+    return fake.first_name()
+@record_replacement
 def fake_middle_name(x):
-    faked = fake.middle_name()
-    faked_values[faked] = x
-    return faked
+    return fake.middle_name()
+@record_replacement
 def fake_last_name(x):
-    faked = fake.last_name()
-    faked_values[faked] = x
-    return faked
+    return fake.last_name()
+@record_replacement
 def fake_city(x):
-    faked = fake.city()
-    faked_values[faked] = x
-    return faked
+    return fake.city()
+@record_replacement
 def fake_street(x):
-    faked = fake.street_name()
-    faked_values[faked] = x
-    return faked
+    return fake.street_name()
+@record_replacement
 def fake_district(x):
-    faked = fake.district()
-    faked_values[faked] = x
-    return faked
+    return fake.district()
+@record_replacement
 def fake_region(x):
-    faked = fake.region_code()
-    faked_values[faked] = x
-    return faked
+    return fake.region_code()
+@record_replacement
 def fake_house(x):
-    faked = fake.street_address()
-    faked_values[faked] = x
-    return faked
+    return fake.street_address()
+@record_replacement
 def fake_city(x):
-    faked = fake.city()
-    faked_values[faked] = x
-    return faked
+    return fake.city()
+@record_replacement
 def fake_location(x):
-    faked = fake.address()
-    faked_values[faked] = x
-    return faked
+    return fake.address()
+@record_replacement
 def fake_email(x):
-    faked = fake.safe_email()
-    faked_values[faked] = x
-    return faked
+    return fake.safe_email()
+@record_replacement
 def fake_phone(x):
-    faked = fake.phone_number()
-    faked_values[faked] = x
-    return faked
+    return fake.phone_number()
+@record_replacement
 def fake_card(x):
-    faked = fake.credit_card_number()
-    faked_values[faked] = x
-    return faked
+    return fake.credit_card_number()
+@record_replacement
 def fake_ip(x):
-    faked = fake.ipv4_public()
-    faked_values[faked] = x
-    return faked
+    return fake.ipv4_public()
+@record_replacement
 def fake_url(x):
-    faked = fake.url()
-    faked_values[faked] = x
-    return faked
+    return fake.url()
