@@ -230,8 +230,6 @@ def nlp_engine_and_registry(
     else:
         raise ValueError(f"Model family {model_family} not supported")
     
-    registry.add_recognizer(ru_internal_passport_recognizer)
-    registry.add_recognizer(SNILSRecognizer())
     return engine, registry
 
 

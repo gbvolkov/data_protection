@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flask LLM Interface</title>
+  <!-- Base styles -->
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Editor-specific styles -->
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/editor.css') }}">
+</head>
+<body>
+  <h1>LLM Interface</h1>
+  <form id="mainForm" method="post">
+
+    <div>
+        <div id="main-container">
+            <label>System Prompt:<br>
+            <textarea class="container" name="system_prompt" rows="10" cols="60">{{ system_prompt or '' }}</textarea>
+            </label><br><br>
+
+            <label>User Request:<br>
+            <textarea class="container" name="user_request" rows="10" cols="60">{{ user_request or '' }}</textarea>
+            </label><br><br>
+
+            <button type="submit" name="action" value="anonymize">Anonymize</button>
+            <button type="submit" name="action" value="go">GO</button><br><br>
+
+            <label>Anonymized Request:<br>
+            <textarea class="container" rows="10" cols="60" readonly>{{ anonymized_request or '' }}</textarea>
+            </label><br><br>
+
+            {% if llm_response %}
+            <label>View:</label>
+            <input type="radio" name="view" value="llm" checked onchange="toggleResponses()"> LLM
+            <input type="radio" name="view" value="dean" onchange="toggleResponses()"> Deanonymized<br><br>
+
+            <div id="llm_response">
+                <label>LLM Response:<br>
+                <textarea class="container" rows="20" cols="60" readonly>{{ llm_response }}</textarea>
+                </label><br><br>
+            </div>
+            <div id="dean_response" hidden>
+                <label>Deanonymized Response:<br>
+                <textarea class="container" rows="20" cols="60" readonly>{{ dean_response }}</textarea>
+                </label><br><br>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</form>
+                
+
+  <!-- rename.js: contains applyRename() -->
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+
+</body>
+</html>

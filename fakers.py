@@ -1,12 +1,43 @@
 from faker import Faker
+from faker.providers.person.en import Provider as BasePerson
+
 import functools
 import spacy
+import pymorphy3
+
 import re
 
+from names_morph import get_morphs
+
+class FilteredPerson(BasePerson):
+    # drop your unwanted names here
+    first_names = [n for n in BasePerson.first_names if n not in {"Алесандр", "Алесандра", "Юлия", "Юлия", "Добромысл", "Добромысла", "Эммануил", "Эммануила", "Мирослав", "Мирослава"}]
+
 fake = Faker(locale="ru-RU")
+morph = pymorphy3.MorphAnalyzer(lang='ru')
 
 faked_values = {}
+true_values = {}
 nlp = spacy.load("ru_core_news_sm")
+
+def validate_name(name):
+    try:
+        forms = get_morphs(name)
+        hash_nom = calc_hash(name)
+        for case, val in forms["singular"].items():
+            hash_var = calc_hash(val)
+            if hash_var != hash_nom:
+                #print(f"{name} ({hash_nom}): {case}: {val} ({hash_var})")
+                return False
+        for case, val in forms["plural"].items():
+            hash_var = calc_hash(val)
+            if hash_var != hash_nom:
+                #print(f"{name} ({hash_nom}): plural_{case}: {val} ({hash_var})")
+                return False
+        return True
+    except:
+        return False
+
 
 def calc_hash(text):
     VOWELS = set("АЕЁИОУЫЭЮЯаеёиоуыэюя")
@@ -18,16 +49,29 @@ def calc_hash(text):
         alfanum = ''.join(ch if (ch.isalnum() or ch.isspace()) else " " for ch in s)   
 
         words = alfanum.split()
-        stripped = [strip_vowels(w) for w in words]
+        #stripped = [strip_vowels(w) for w in words]
+        stripped = [w for w in words]
         return " ".join(stripped)
     
+    def normalyze_lemma(lemma):
+        parse = morph.parse(lemma)[0]
+        form = parse.inflect({"nomn", "sing", "masc"})
+        return form.word if form else lemma
+
     tockens = nlp(text)
-    hash = alnum("".join([token.lemma_ for token in tockens]))
+    hash = alnum("".join([normalyze_lemma(token.lemma_) for token in tockens]))
     return hash
 
 def defake(fake):
+    if fake == 'PII':
+        return fake
     hash = calc_hash(fake)
-    return faked_values[hash].get('true')
+    if hash in faked_values:
+        print(f"FAKE FOUND: request: {fake}; hash: {hash}; true: {faked_values[hash].get('true')}; fake: {faked_values[hash].get('fake')}")
+        return faked_values[hash].get('true')
+    else:
+        print(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
+        return fake
 
 def record_replacement(func):
 
@@ -35,9 +79,12 @@ def record_replacement(func):
     def wrapper(x):
         if x == "PII":
             return x
+        hash = calc_hash(x)
+        if hash in true_values:
+            return true_values[hash].get('fake')
         fake = func(x)
-        hash = calc_hash(fake)
-        faked_values[hash] = {"true": x, "fake": fake}
+        true_values[hash] = {"true": x, "fake": fake}
+        faked_values[calc_hash(fake)] = {"true": x, "fake": fake}
         return fake
     return wrapper
 
@@ -55,7 +102,15 @@ def fake_passport(x):
     return fake.passport_number()
 @record_replacement
 def fake_name(x):
-    return fake.first_name() + " " + fake.last_name()
+    attempts = 10
+    is_valid = False
+    while attempts > 0:
+        name = fake.first_name() + " " + fake.last_name()
+        if validate_name(name):
+            return name
+        attempts -= 1
+    print(f"NON_CASHABLE: {name}")
+    return name
 @record_replacement
 def fake_first_name(x):
     return fake.first_name()
@@ -101,3 +156,13 @@ def fake_ip(x):
 @record_replacement
 def fake_url(x):
     return fake.url()
+
+if __name__ == '__main__':
+    import time
+    for i in range(0, 15):
+        name = fake.name()
+        print(name)
+    hash = calc_hash('Юлия Валентиновича Блинова')
+    print(hash)
+    hash = calc_hash('Юлий Валентинович Блинов')
+    print(hash)
