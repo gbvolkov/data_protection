@@ -1,58 +1,76 @@
 import logging
+import os
+import threading
+import time
 import sys
 
+class ProjectFilter(logging.Filter):
+    """Allow only records whose source file is under `project_root`."""
+    def __init__(self, project_root: str):
+        super().__init__()
+        self.root = os.path.abspath(project_root)
 
-def set_logging(app_name, min_level=logging.DEBUG):
-    # Create handlers
-    logger = logging.getLogger(app_name)
-    logger.setLevel(logging.DEBUG)  # capture all levels
+    def filter(self, record: logging.LogRecord) -> bool:
+        return os.path.abspath(record.pathname).startswith(self.root)
 
-    # 2. Create handlers
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(min_level)  # what goes to the screen
+class NotProjectFilter(logging.Filter):
+    """Allow only records whose source file is *not* under `project_root`."""
+    def __init__(self, project_root: str):
+        super().__init__()
+        self.root = os.path.abspath(project_root)
 
-    file_handler = logging.FileHandler(f"logs/{app_name}.log", encoding="utf-8")
-    file_handler.setLevel(logging.DEBUG)  # what goes to the file
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not os.path.abspath(record.pathname).startswith(self.root)
 
-    # 3. Create and set a formatter (same or different per handler)
-    fmt = "%(asctime)s — %(name)s — %(levelname)s — %(message)s"
-    formatter = logging.Formatter(fmt)
+def setup_logging(
+    app_name: str,
+    project_root: str = None,
+    project_console_level: int = logging.INFO,
+    other_console_level:   int = logging.WARNING,
+) -> str:
+    """
+    - **FileHandler** at DEBUG for *only* your code.
+    - **StreamHandler** at INFO+ for *only* your code.
+    - **StreamHandler** at WARNING+ for everything else.
+    """
+    if not project_root:
+        project_root = os.path.dirname(os.path.abspath(__file__))
+    root = logging.getLogger()
+    root.setLevel(logging.DEBUG)   # let handlers do the filtering
 
-    console_handler.setFormatter(formatter)
-    file_handler.setFormatter(formatter)
+    # 1) File handler for *your* code
+    tid     = threading.get_ident()
+    ts      = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    logfile = os.path.join("logs", f"{app_name}_{ts}_{tid}.log")
+    os.makedirs(os.path.dirname(logfile), exist_ok=True)
 
-    # 4. Attach handlers to the logger
-    logger.addHandler(console_handler)
-    logger.addHandler(file_handler)
+    fh = logging.FileHandler(logfile, encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    #fh.setFormatter(logging.Formatter(
+    #    "%(asctime)s — %(levelname)s — %(name)s — %(threadName)s — %(message)s"
+    #))
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s — %(levelname)s — %(message)s"
+    ))
+    fh.addFilter(ProjectFilter(project_root))
+    root.addHandler(fh)
 
+    # 2) Console for *your* code (INFO+)
+    ch_proj = logging.StreamHandler(sys.stdout)
+    ch_proj.setLevel(project_console_level)
+    ch_proj.setFormatter(logging.Formatter(
+        "%(asctime)s — %(levelname)s — %(name)s — %(message)s"
+    ))
+    ch_proj.addFilter(ProjectFilter(project_root))
+    root.addHandler(ch_proj)
 
-    # Create a formatter and set it on both
-    #fmt = logging.Formatter("%(asctime)s — %(levelname)s — %(name)s — %(message)s")
-    #console_h.setFormatter(fmt)
-    #file_h.setFormatter(fmt)
+    # 3) Console for *other* code (WARNING+)
+    ch_other = logging.StreamHandler(sys.stdout)
+    ch_other.setLevel(other_console_level)
+    ch_other.setFormatter(logging.Formatter(
+        "%(asctime)s — %(levelname)s — %(name)s — %(message)s"
+    ))
+    ch_other.addFilter(NotProjectFilter(project_root))
+    root.addHandler(ch_other)
 
-    # Configure the root logger
-    #logging.basicConfig(
-    #    level=max_level,            # root level
-    #    handlers=[console_h, file_h]    # both console & file
-    #)
-
-
-if __name__ == '__main__':
-    import time
-    import threading
-
-    thread_id = threading.get_ident()
-    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
-    log_name = f"test_{timestamp}_{thread_id}"
-
-
-    logging.basicConfig(level=logging.DEBUG)
-    
-    set_logging(log_name, logging.WARNING)
-    logger = logging.getLogger(log_name)
-
-    logger.debug("This is a debug message")
-    logger.info("This is an info message")
-    logger.warning("This is a warning")
-
+    return logfile

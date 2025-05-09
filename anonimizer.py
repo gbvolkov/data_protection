@@ -60,7 +60,7 @@ def anonimizer_factory():
             final_text = final_text + chunk + "\n"
             shift = len(final_text)#shift + len(chunk) + 2
 
-        logger.debug(f"=============================ANALISYS DONE================================\n")
+        logger.debug(f"\n=============================ANALISYS DONE================================\n")
         return final_text, analyzer_results
     def anonimizer(text):
         faked_values.clear()
@@ -125,10 +125,10 @@ def anonimizer_factory():
 
 
         analized_anon_text, analized_anon_results = analyze(text)#, ["person", "house_address"])
-        logger.debug(f"=============================DEANONIMIZATION ANALISYS================================")
+        logger.debug(f"\n=============================DEANONIMIZATION ANALISYS================================")
         for r in analized_anon_results:
             logger.debug(f"{r.entity_type}: `{analized_anon_text[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
-        logger.debug(f"=============================DEANONIMIZATION ANALISYS================================")
+        logger.debug(f"\n=============================DEANONIMIZATION ANALISYS================================")
         
         result = engine.anonymize(
             text=analized_anon_text,
@@ -181,18 +181,18 @@ class TextProcessor():
         self._verbose = verbose
     def anonimize(self, text):
         logger.debug(f"\n\n=============================ANONIMIZATION================================")
-        logger.debug(    f"==================================================================INITIAL TEXT:\n{text}\n\n")
+        logger.debug(    f"\n==================================================================INITIAL TEXT:\n{text}\n\n")
         self._anonimized_text, self._entities = self._anonimizer(text)
         if self._verbose:
             logger.debug(f"\n===========================ANONIMIZED RESULTS================================")
-            logger.debug(  f"===========================================================ANONIMIZED_TEXT:\n{self._anonimized_text}\n\n")
-            logger.debug(  f"===========================================================FAKED_VALUES:")
+            logger.debug(  f"\n===========================================================ANONIMIZED_TEXT:\n{self._anonimized_text}\n\n")
+            logger.debug(  f"\n===========================================================FAKED_VALUES:")
             for hash in faked_values:
                 logger.debug(f"\thash: {hash};  true: {faked_values[hash]['true']};  fake: {faked_values[hash]['fake']}")
-            logger.debug(  f"===========================================================TRUE_VALUES:")
+            logger.debug(  f"\n===========================================================TRUE_VALUES:")
             for hash in true_values:
                 logger.debug(f"\thash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}")
-            logger.debug(  f"===========================================================ENTITIES:")
+            logger.debug(  f"\n===========================================================ENTITIES:")
             for e in self._entities:
                 logger.debug(f"\ttype: {e.entity_type};  value: {e.text};  operator: {e.operator}")
 
@@ -206,8 +206,8 @@ class TextProcessor():
         
             if self._verbose:
                 logger.debug(f"\n===========================DEANONIMIZED RESULTS================================")
-                logger.debug(  f"===========================================================DEANONIMIZED_TEXT:\n{deanonimized_text}\n\n")
-                logger.debug(  f"===========================================================DEANON_ENTITIES:")
+                logger.debug(  f"\n===========================================================DEANONIMIZED_TEXT:\n{deanonimized_text}\n\n")
+                logger.debug(  f"\n===========================================================DEANON_ENTITIES:")
                 for e in deanon_entities:
                     logger.debug(f"\ttype: {e.entity_type};  value: {e.text};  operator: {e.operator}")
         
@@ -220,17 +220,18 @@ if __name__ == '__main__':
     import time
     import threading
 
-    from logger_factory import set_logging
+    from logger_factory import setup_logging
 
     thread_id = threading.get_ident()
     timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
     log_name = f"anonimizer_{timestamp}_{thread_id}"
 
     #logging.basicConfig(level=logging.WARNING)
-    set_logging(log_name, logging.WARNING)
-    timestamp=time.time()
-    logger = logging.getLogger(log_name)
-    logger.info("Started")
+    setup_logging("anonimizer")
+    logger = logging.getLogger(__name__)
+    #timestamp=time.time()
+    #logger = logging.getLogger(log_name)
+    #logger.info("Started")
 
 #    with open("data/anonimized.txt", encoding="utf-8") as f:
 #        text = f.read()
@@ -240,19 +241,27 @@ if __name__ == '__main__':
 #    for r in analized_anon_results:
 #        print(f"{r.entity_type}: `{analized_anon_text[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
     from llm import generate_answer
-    with open("data/test_text.txt", encoding="utf-8") as f:
-        text = f.read()
+    text = """Клиент Степан Степанов (4519227557) по поручению Ивана Иванова обратился в "Интерлизинг" с предложением купить трактор. 
+    Для оплаты используется его карта 4095260993934932. 
+    Позвоните ему 9867777777 или 9857777237.
+    Или можно по адресу г. Санкт-Петербург, Сенная Площадь, д1/2кв17
+    Посмотреть его данные можно https://client.ileasing.ru/name=stapanov:3000 или зайти на 182.34.35.12/
+    """    
+    #with open("data/test_text.txt", encoding="utf-8") as f:
+    #    text = f.read()
 
     system_prompt = """Ты очень опытный секретарь, который умеет готовить идеальные протоколы встреч.
 Подготовь детальный протокол по транскрипту встречи.
 Обязательно отрази основные тезисы докладов, высказанные возражения, зафиксируй решения и поставленные задачи со сроками и ответственными"""
+    system_prompt = """Преобразуй текст в записку для записи в CRM. Текст должен быть хорошо структурирован и понятен с первого взгляда"""
 
     processor = TextProcessor(verbose=True)
-    anon = processor.anonimize(text)
-    logger.info("Anonimized")
-    answer = generate_answer(system_prompt, anon)
-    logger.info("LLM response recevied")
-    deanon = processor.deanonimize(answer)
-    logger.info("DONE")
-    with open("data/result.txt", "w", encoding="utf-8") as f:
-        f.write(deanon)
+    for i in range(0,15):
+        anon = processor.anonimize(text)
+        logger.info("Anonimized")
+        answer = generate_answer(system_prompt, anon)
+        logger.info("LLM response recevied")
+        deanon = processor.deanonimize(answer)
+        logger.info("DONE")
+        with open(f"data/result_{i:2}.txt", "w", encoding="utf-8") as f:
+            f.write(deanon)

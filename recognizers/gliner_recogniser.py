@@ -3,6 +3,29 @@ from typing import Optional, List, Tuple, Set
 from presidio_analyzer import AnalyzerEngine, EntityRecognizer, RecognizerResult
 
 from gliner import GLiNER
+import re
+
+def merge_spans(results, entity_type, text, delim_pattern=r'^[\s,;:\-]+$'):
+    spans = [r for r in results if r.entity_type == entity_type]
+    others = [r for r in results if r.entity_type != entity_type]
+    spans.sort(key=lambda r: r.start)
+    merged = []
+    cur = None
+    delim_re = re.compile(delim_pattern)
+    for r in spans:
+        if cur is None:
+            cur = r
+        else:
+            between = text[cur.end:r.start]
+            if delim_re.match(between):
+                cur = RecognizerResult(entity_type, cur.start, r.end,
+                                    score=max(cur.score, r.score))
+            else:
+                merged.append(cur)
+                cur = r
+    if cur:
+        merged.append(cur)
+    return others + merged
 
 class GlinerRecognizer(EntityRecognizer):
     def __init__(
@@ -13,12 +36,6 @@ class GlinerRecognizer(EntityRecognizer):
         model_path: Optional[str] = "gliner-community/gliner_large-v2.5",
         
     ):
-        # the raw GLiNER tags we know about:
-        self.raw_labels = [
-            "person", "person_name",
-            "organization", "organization_name",
-            "address", "house_address", "city",
-        ]
         # map them to the Presidio-standard types:
         self.label_map = {
             "person":             "PERSON",
@@ -31,6 +48,7 @@ class GlinerRecognizer(EntityRecognizer):
         }
 
         supported_entities = list(set(self.label_map.values()))
+        self.raw_labels = list(self.label_map.keys())
         super().__init__(
             supported_entities=supported_entities,
             name="GlinerRecognizer",
@@ -61,6 +79,11 @@ class GlinerRecognizer(EntityRecognizer):
                     score=span.get("score"),
                 )
             )
+
+        # split ADDRESS vs everything else
+        results = merge_spans(results, "ADDRESS", text)
+        results.sort(key=lambda r: r.score)
+
         return results
 
 
@@ -97,8 +120,8 @@ if __name__ == "__main__":
 Или можно по адресу г. Санкт-Петербург, Сенная Площадь, д1/2кв17
 Посмотреть его данные можно https://client.ileasing.ru/name=stapanov:3000 или зайти на 182.34.35.12/
 """
-    with open("logs/test.txt", encoding="utf-8") as f:
-        text_ru = f.read()
+    #with open("logs/test.txt", encoding="utf-8") as f:
+    #    text_ru = f.read()
     #sentences = sent_tokenize(text_ru, language='russian')
     #texts = chunk_sentences(sentences, max_chunk_size=768, overlap_size=0, _len=calc_len)    
     print(f"\n=== Analysis for ===\n{text_ru}")

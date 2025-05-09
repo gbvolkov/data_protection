@@ -10,7 +10,7 @@ import re
 from names_morph import get_morphs
 
 import logging
-logger = logging.getLogger("anonimizer")
+logger = logging.getLogger(__name__)
 
 class FilteredPerson(BasePerson):
     # drop your unwanted names here
