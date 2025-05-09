@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, session, redirect, url_for
 from llm import generate_answer
-from anonimizer import TextProcessor, anonimizer_factory
+from anonimizer import TextProcessor
 
 main_bp = Blueprint('main', __name__)
+
 #anonimizer, deanonimizer = anonimizer_factory()
 processor = TextProcessor()
 
