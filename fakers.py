@@ -10,6 +10,7 @@ import re
 from names_morph import get_morphs
 
 import logging
+logger = logging.getLogger("anonimizer")
 
 class FilteredPerson(BasePerson):
     # drop your unwanted names here
@@ -69,10 +70,10 @@ def defake(fake):
         return fake
     hash = calc_hash(fake)
     if hash in faked_values:
-        logging.debug(f"FAKE FOUND: request: {fake}; hash: {hash}; true: {faked_values[hash].get('true')}; fake: {faked_values[hash].get('fake')}")
+        logger.debug(f"FAKE FOUND: request: {fake}; hash: {hash}; true: {faked_values[hash].get('true')}; fake: {faked_values[hash].get('fake')}")
         return faked_values[hash].get('true')
     else:
-        logging.error(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
+        logger.debug(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
         return fake
 
 def record_replacement(func):
@@ -111,7 +112,7 @@ def fake_name(x):
         if validate_name(name):
             return name
         attempts -= 1
-    logging.error(f"NON_CASHABLE: {name}")
+    logger.warning(f"NON_CASHABLE: {name}")
     return name
 @record_replacement
 def fake_first_name(x):
@@ -121,7 +122,7 @@ def fake_first_name(x):
         if validate_name(name):
             return name
         attempts -= 1
-    logging.error(f"NON_CASHABLE: {name}")
+    logger.warning(f"NON_CASHABLE: {name}")
     return name
 def fake_middle_name(x):
     return fake.middle_name()
@@ -133,7 +134,7 @@ def fake_last_name(x):
         if validate_name(name):
             return name
         attempts -= 1
-    logging.error(f"NON_CASHABLE: {name}")
+    logger.warning(f"NON_CASHABLE: {name}")
     return name
 @record_replacement
 def fake_city(x):

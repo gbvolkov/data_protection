@@ -265,4 +265,4 @@ def get_supported_entities(
     """Return supported entities from the Analyzer Engine."""
     return analyzer_engine(
         model_family, model_path, ta_key, ta_endpoint
-    ).get_supported_entities() + ["GENERIC_PII"]
+    ).get_supported_entities()

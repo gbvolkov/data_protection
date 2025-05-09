@@ -11,13 +11,31 @@ class GlinerRecognizer(EntityRecognizer):
         supported_entities: Optional[List[str]] = None,
         check_label_groups: Optional[Tuple[Set, Set]] = None,
         model_path: Optional[str] = "gliner-community/gliner_large-v2.5",
+        
     ):
-        supported_entities = ["person", "organization", "city", "house_address"]
+        # the raw GLiNER tags we know about:
+        self.raw_labels = [
+            "person", "person_name",
+            "organization", "organization_name",
+            "address", "house_address", "city",
+        ]
+        # map them to the Presidio-standard types:
+        self.label_map = {
+            "person":             "PERSON",
+            "person_name":        "PERSON",
+            "organization":       "ORGANIZATION",
+            "organization_name":  "ORGANIZATION",
+            "address":            "ADDRESS",
+            "house_address":      "ADDRESS",
+            "city":               "CITY",
+        }
+
+        supported_entities = list(set(self.label_map.values()))
         super().__init__(
             supported_entities=supported_entities,
             name="GlinerRecognizer",
         )
-        self._model = GLiNER.from_pretrained(model_path)
+        self._model = GLiNER.from_pretrained(model_path, local_files_only=True)
 
     def is_language_supported(self, language: str) -> bool:
         # Принудительно говорим Presidio: "вызывайте меня всегда"
@@ -25,18 +43,19 @@ class GlinerRecognizer(EntityRecognizer):
 
     def analyze(self, text: str, entities=None, **kwargs):
         # запускаем Natasha NER
-        spans = self._model.predict_entities(text=text, labels = self.supported_entities, flat_ner=True, threshold=0.35, multi_label=False)
+        spans = self._model.predict_entities(text=text, labels = self.raw_labels, flat_ner=True, threshold=0.35, multi_label=False)
 
         results = []
         for span in spans:
             # Переводим PER/LOC/ORG → Presidio-тизеры
-            label = span.get("label")  # "PER", "LOC", "ORG"
+            raw_label = span.get("label")  # "PER", "LOC", "ORG"
+            presidio_label = self.label_map.get(raw_label, raw_label)
             # фильтруем, если у нас есть entities-фильтр
-            if entities and label not in entities:
+            if entities and presidio_label not in entities:
                 continue
             results.append(
                 RecognizerResult(
-                    entity_type=label,
+                    entity_type=presidio_label,
                     start=span.get("start"),
                     end=span.get("end"),
                     score=span.get("score"),
@@ -46,6 +65,23 @@ class GlinerRecognizer(EntityRecognizer):
 
 
 if __name__ == "__main__":
+    #from ..sentence_splitter import chunk_sentences
+    #from nltk.tokenize import sent_tokenize
+    from functools import lru_cache
+    from typing import Any
+    from transformers import AutoTokenizer
+
+    def length_factory(tokenizer: Any = None):
+        @lru_cache(maxsize=5000, typed=True)
+        def _len(text: str) -> int:
+            return len(tokenizer.encode(text))
+        if tokenizer:
+            return _len
+        else:
+            return len
+    tokenizer =  AutoTokenizer.from_pretrained("gliner-community/gliner_large-v2.5")
+    calc_len = length_factory(tokenizer)
+
     # Собираем движок с дефолтными Pattern/Spacy-распознавателями
     engine = AnalyzerEngine()
     # Впихиваем наш Natasha-распознаватель
@@ -61,8 +97,11 @@ if __name__ == "__main__":
 Или можно по адресу г. Санкт-Петербург, Сенная Площадь, д1/2кв17
 Посмотреть его данные можно https://client.ileasing.ru/name=stapanov:3000 или зайти на 182.34.35.12/
 """
-
-    print("\n=== Russian call ===")
+    with open("logs/test.txt", encoding="utf-8") as f:
+        text_ru = f.read()
+    #sentences = sent_tokenize(text_ru, language='russian')
+    #texts = chunk_sentences(sentences, max_chunk_size=768, overlap_size=0, _len=calc_len)    
+    print(f"\n=== Analysis for ===\n{text_ru}")
     result = engine.analyze(text=text_ru, language="en", return_decision_process=True)
     for r in result:
         print(f"{r.entity_type}: `{text_ru[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")

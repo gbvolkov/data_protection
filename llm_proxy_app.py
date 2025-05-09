@@ -2,6 +2,12 @@ from flask import Flask
 import config
 from routes import main_bp
 
+from logger_factory import set_logging
+import logging
+
+logging.basicConfig(level=logging.WARNING)
+set_logging("anonimizer", logging.WARNING)
+#logger = logging.getLogger("anonimizer")
 
 def create_app():
     app = Flask(__name__)

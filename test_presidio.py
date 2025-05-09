@@ -7,7 +7,7 @@ from presidio_anonymizer.entities import OperatorConfig
 from presidio_anonymizer.operators import Decrypt
 
 from fakers import *
-from analyser_engine import analyzer_engine
+from analyzer_engine_provider import analyzer_engine
 
 from text_transformation import transform_text
 from recognizers.regex_recognisers import RU_ENTITIES

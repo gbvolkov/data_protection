@@ -27,14 +27,13 @@ def anonimizer_factory():
     from sentence_splitter import chunk_sentences
     from nltk.tokenize import sent_tokenize
 
-    from analyser_engine import analyzer_engine
-    from nltk.tokenize import sent_tokenize
+    from analyzer_engine_provider import analyzer_engine
     from recognizers.regex_recognisers import RU_ENTITIES
 
     analyzer = analyzer_engine("gliner", "gliner-community/gliner_large-v2.5")
     tokenizer =  AutoTokenizer.from_pretrained("gliner-community/gliner_large-v2.5")
     calc_len = length_factory(tokenizer)
-    supported = analyzer.get_supported_entities() + ["GENERIC_PII"] + RU_ENTITIES
+    supported = analyzer.get_supported_entities() + RU_ENTITIES
     supported.remove("IN_PAN")
     engine = AnonymizerEngine()
     cr_key = config.CRYPRO_KEY
@@ -46,10 +45,12 @@ def anonimizer_factory():
         analyzer_results = []
         shift = 0
         final_text = ""
+        logger.debug(f"\n\n=============================ANALISYS================================")
         for chunk in texts:
             analized = analyzer.analyze(text=chunk, entities=analizer_entities, language='en', return_decision_process=False)
-            #pii_data = [(chunk[res.start:res.end], res.start, res.end, res.entity_type, res.score, res.recognition_metadata['recognizer_name']) for res in analized]
-            #print(f"========Recognised entities of chunk {chunk}========")
+            logger.debug(f"\n\n=============================ANALISYS FOR CHUNK================================:\n{chunk}\n\n")
+            for r in analized:
+                logger.debug(f"\t\t{r.entity_type}: `{chunk[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
             #pprint(pii_data)
             analized = [
                 RecognizerResult(r.entity_type, r.start + shift, r.end + shift, r.score, r.analysis_explanation, r.recognition_metadata)
@@ -59,6 +60,7 @@ def anonimizer_factory():
             final_text = final_text + chunk + "\n"
             shift = len(final_text)#shift + len(chunk) + 2
 
+        logger.debug(f"=============================ANALISYS DONE================================\n")
         return final_text, analyzer_results
     def anonimizer(text):
         faked_values.clear()
@@ -78,11 +80,11 @@ def anonimizer_factory():
                     #"FIRST_NAME": OperatorConfig("custom", {"lambda": fake_first_name}),
                     #"MIDDLE_NAME": OperatorConfig("custom", {"lambda": fake_middle_name}),
                     #"LAST_NAME": OperatorConfig("custom", {"lambda": fake_last_name}),
-                    "organization": OperatorConfig("keep"),
-                    "city": OperatorConfig("keep"),
-                    "person": OperatorConfig("custom", {"lambda": fake_name}),
+                    "ORGANIZATION": OperatorConfig("keep"),
+                    "CITY": OperatorConfig("keep"),
+                    "PERSON": OperatorConfig("custom", {"lambda": fake_name}),
                     #"STREET": OperatorConfig("custom", {"lambda": fake_street}),
-                    "house_address": OperatorConfig("custom", {"lambda": fake_house}),
+                    "ADDRESS": OperatorConfig("custom", {"lambda": fake_house}),
                     #"LOCATION": OperatorConfig("custom", {"lambda": fake_location}),
                     "CREDIT_CARD": OperatorConfig("custom", {"lambda": fake_card}),
                     "PHONE_NUMBER": OperatorConfig("custom", {"lambda": fake_phone}),
@@ -116,69 +118,98 @@ def anonimizer_factory():
         def deanonimize(item): 
             if item.operator=="encrypt":
                 return Decrypt().operate(text=item.text, params={"key": cr_key})
-            elif item.operator=="custom":
-                return defake(item.text)
+            #elif item.operator=="custom":
+            #    return defake(item.text)
             else:
                 return item.text
 
 
-        analized_anon_text, analized_anon_results = analyze(text, ["person", "house_address"])
+        analized_anon_text, analized_anon_results = analyze(text)#, ["person", "house_address"])
+        logger.debug(f"=============================DEANONIMIZATION ANALISYS================================")
+        for r in analized_anon_results:
+            logger.debug(f"{r.entity_type}: `{analized_anon_text[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
+        logger.debug(f"=============================DEANONIMIZATION ANALISYS================================")
         
         result = engine.anonymize(
             text=analized_anon_text,
             analyzer_results=analized_anon_results,
-            operators={"DEFAULT": OperatorConfig("keep"),
-                    "person": OperatorConfig("custom", {"lambda": defake}),
-                    "house_address": OperatorConfig("custom", {"lambda": defake}),
-                    })        
 
-        logging.debug(f"Count of entities: {len(entities)}: {len(faked_values)}: {len(true_values)}")    
+            operators={"DEFAULT": OperatorConfig("keep"),
+                    #"FIRST_NAME": OperatorConfig("custom", {"lambda": fake_first_name}),
+                    #"MIDDLE_NAME": OperatorConfig("custom", {"lambda": fake_middle_name}),
+                    #"LAST_NAME": OperatorConfig("custom", {"lambda": fake_last_name}),
+                    "ORGANIZATION": OperatorConfig("keep"),
+                    "CITY": OperatorConfig("keep"),
+                    "PERSON": OperatorConfig("custom", {"lambda": defake}),
+                    #"STREET": OperatorConfig("custom", {"lambda": fake_street}),
+                    "ADDRESS": OperatorConfig("custom", {"lambda": defake}),
+                    #"LOCATION": OperatorConfig("custom", {"lambda": fake_location}),
+                    "CREDIT_CARD": OperatorConfig("custom", {"lambda": defake}),
+                    "PHONE_NUMBER": OperatorConfig("custom", {"lambda": defake}),
+                    "IP_ADDRESS": OperatorConfig("custom", {"lambda": defake}),
+                    "URL": OperatorConfig("custom", {"lambda": defake}),
+                    "RU_PASSPORT": OperatorConfig("custom", {"lambda": defake}),
+                    "SNILS": OperatorConfig("custom", {"lambda": defake}),
+                    "INN": OperatorConfig("custom", {"lambda": defake}),
+                    "RU_BANK_ACC": OperatorConfig("custom", {"lambda": defake}),
+                    })
+
+            #operators={"DEFAULT": OperatorConfig("keep"),
+            #        "person": OperatorConfig("custom", {"lambda": defake}),
+            #        "house_address": OperatorConfig("custom", {"lambda": defake}),
+            #        })        
+        deanonimized_text = result.text
+        logger.debug(f"Count of entities: {len(entities)}: {len(faked_values)}: {len(true_values)}")    
         deanonimized_entities = [
             {**item.to_dict(), 'restored': deanonimize(item)}
             for item in entities]
+        #for r in deanonimized_entities:
+        #    print(f"{r['entity_type']}: `{analized_anon_text[r['start']:r['end']]}` (text={r['text']})) , restored:{r['restored']}")
         for item in deanonimized_entities:
-            text  = text.replace(item["text"], item["restored"])
+            deanonimized_text  = deanonimized_text.replace(item["text"], item["restored"])
 
 
-        return result.text, result.items
+        return deanonimized_text, result.items
 
-    return anonimizer, deanonimizer
+    return anonimizer, deanonimizer, analyze
 
 class TextProcessor():
     def __init__(self, verbose=False):
-        self._anonimizer, self._deanonimizer = anonimizer_factory()
+        self._anonimizer, self._deanonimizer, _ = anonimizer_factory()
         self._entities = None
         self._anonimized_text = ""
         self._verbose = verbose
     def anonimize(self, text):
+        logger.debug(f"\n\n=============================ANONIMIZATION================================")
+        logger.debug(    f"==================================================================INITIAL TEXT:\n{text}\n\n")
         self._anonimized_text, self._entities = self._anonimizer(text)
         if self._verbose:
-            with open("data/crypted.txt", "w", encoding="utf-8") as f:
-                f.write(self._anonimized_text)
-            with open("data/faked_hash.txt", "w", encoding="utf-8") as f:
-                for hash in faked_values:
-                    f.write(f"hash: {hash};  true: {faked_values[hash]['true']};  fake: {faked_values[hash]['fake']}\n")
-            with open("data/true_hash.txt", "w", encoding="utf-8") as f:
-                for hash in true_values:
-                    f.write(f"hash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}\n")
-            with open("data/anon_entities.txt", "w", encoding="utf-8") as f:
-                for e in self._entities:
-                    f.write(f"type: {e.entity_type};  value: {e.text};  operator: {e.operator}\n")
+            logger.debug(f"\n===========================ANONIMIZED RESULTS================================")
+            logger.debug(  f"===========================================================ANONIMIZED_TEXT:\n{self._anonimized_text}\n\n")
+            logger.debug(  f"===========================================================FAKED_VALUES:")
+            for hash in faked_values:
+                logger.debug(f"\thash: {hash};  true: {faked_values[hash]['true']};  fake: {faked_values[hash]['fake']}")
+            logger.debug(  f"===========================================================TRUE_VALUES:")
+            for hash in true_values:
+                logger.debug(f"\thash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}")
+            logger.debug(  f"===========================================================ENTITIES:")
+            for e in self._entities:
+                logger.debug(f"\ttype: {e.entity_type};  value: {e.text};  operator: {e.operator}")
 
         
         return self._anonimized_text
     def deanonimize(self, anonimized_text):
         if self._entities:
+            logger.debug(f"\n\n===========================DEANONIMIZATION================================")
+            logger.debug(  f"===========================================================ANONIMIZED_TEXT:\n{anonimized_text}\n\n")
             deanonimized_text, deanon_entities = self._deanonimizer(anonimized_text, self._entities)
         
             if self._verbose:
-                with open("data/anonimized.txt", "w", encoding="utf-8") as f:
-                    f.write(anonimized_text)
-                with open("data/decypted.txt", "w", encoding="utf-8") as f:
-                    f.write(deanonimized_text)
-                with open("data/deanon_entities.txt", "w", encoding="utf-8") as f:
-                    for e in deanon_entities:
-                        f.write(f"type: {e.entity_type};  value: {e.text};  operator: {e.operator}\n")
+                logger.debug(f"\n===========================DEANONIMIZED RESULTS================================")
+                logger.debug(  f"===========================================================DEANONIMIZED_TEXT:\n{deanonimized_text}\n\n")
+                logger.debug(  f"===========================================================DEANON_ENTITIES:")
+                for e in deanon_entities:
+                    logger.debug(f"\ttype: {e.entity_type};  value: {e.text};  operator: {e.operator}")
         
             return deanonimized_text
         else:
@@ -186,6 +217,28 @@ class TextProcessor():
 
 
 if __name__ == '__main__':
+    import time
+    import threading
+
+    from logger_factory import set_logging
+
+    thread_id = threading.get_ident()
+    timestamp = time.strftime("%Y%m%d_%H%M%S", time.localtime())
+    log_name = f"anonimizer_{timestamp}_{thread_id}"
+
+    #logging.basicConfig(level=logging.WARNING)
+    set_logging(log_name, logging.WARNING)
+    timestamp=time.time()
+    logger = logging.getLogger(log_name)
+    logger.info("Started")
+
+#    with open("data/anonimized.txt", encoding="utf-8") as f:
+#        text = f.read()
+#
+#    _, _, analyze = anonimizer_factory()
+#    analized_anon_text, analized_anon_results = analyze(text)
+#    for r in analized_anon_results:
+#        print(f"{r.entity_type}: `{analized_anon_text[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
     from llm import generate_answer
     with open("data/test_text.txt", encoding="utf-8") as f:
         text = f.read()
@@ -196,32 +249,10 @@ if __name__ == '__main__':
 
     processor = TextProcessor(verbose=True)
     anon = processor.anonimize(text)
+    logger.info("Anonimized")
     answer = generate_answer(system_prompt, anon)
+    logger.info("LLM response recevied")
     deanon = processor.deanonimize(answer)
-
-    
-"""
-    anonimizer, deanonimizer = anonimizer_factory()
-    
-    crypted, entities = anonimizer(text)
-    with open("data/crypted.txt", "w", encoding="utf-8") as f:
-        f.write(crypted)
-    #print("========================================================")
-    #print(crypted)
-    with open("data/faked_hash.txt", "w", encoding="utf-8") as f:
-        for hash in faked_values:
-            f.write(f"hash: {hash};  true: {faked_values[hash]['true']};  fake: {faked_values[hash]['fake']}\n")
-    with open("data/true_hash.txt", "w", encoding="utf-8") as f:
-        for hash in true_values:
-            f.write(f"hash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}\n")
-
-
-    llm_resp = generate_answer(system_prompt, crypted)
-    with open("data/response.txt", "w", encoding="utf-8") as f:
-        f.write(llm_resp)
-    dean_resp = deanonimizer(llm_resp, entities)
-    with open("data/decypted.txt", "w", encoding="utf-8") as f:
-        f.write(dean_resp)
-    print("READY")
-
-"""
+    logger.info("DONE")
+    with open("data/result.txt", "w", encoding="utf-8") as f:
+        f.write(deanon)
