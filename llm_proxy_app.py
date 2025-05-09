@@ -4,8 +4,6 @@ from routes import main_bp
 from logger_factory import setup_logging
 
 
-
-
 def create_app():
     app = Flask(__name__)
     #app.config.from_object(Config)
