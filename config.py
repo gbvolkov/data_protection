@@ -71,3 +71,4 @@ ASSISTANT_INDEX_FOLDER = os.environ.get('ASSISTANT_INDEX_FOLDER') or "./data/ass
 RERANKING_MODEL = os.environ.get('RERANKING_MODEL') or '/models/bge-reranker-large'
 
 CRYPRO_KEY = os.environ.get('CRYPRO_KEY')
+SECRET_APP_KEY = os.environ.get('SECRET_APP_KEY')

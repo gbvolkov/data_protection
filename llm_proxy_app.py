@@ -6,7 +6,7 @@ from routes import main_bp
 def create_app():
     app = Flask(__name__)
     #app.config.from_object(Config)
-
+    app.secret_key = config.SECRET_APP_KEY
     # Register Blueprints
     app.register_blueprint(main_bp)
 

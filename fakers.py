@@ -9,6 +9,8 @@ import re
 
 from names_morph import get_morphs
 
+import logging
+
 class FilteredPerson(BasePerson):
     # drop your unwanted names here
     first_names = [n for n in BasePerson.first_names if n not in {"Алесандр", "Алесандра", "Юлия", "Юлия", "Добромысл", "Добромысла", "Эммануил", "Эммануила", "Мирослав", "Мирослава"}]
@@ -67,10 +69,10 @@ def defake(fake):
         return fake
     hash = calc_hash(fake)
     if hash in faked_values:
-        print(f"FAKE FOUND: request: {fake}; hash: {hash}; true: {faked_values[hash].get('true')}; fake: {faked_values[hash].get('fake')}")
+        logging.debug(f"FAKE FOUND: request: {fake}; hash: {hash}; true: {faked_values[hash].get('true')}; fake: {faked_values[hash].get('fake')}")
         return faked_values[hash].get('true')
     else:
-        print(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
+        logging.error(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
         return fake
 
 def record_replacement(func):
@@ -81,9 +83,10 @@ def record_replacement(func):
             return x
         hash = calc_hash(x)
         if hash in true_values:
-            return true_values[hash].get('fake')
-        fake = func(x)
-        true_values[hash] = {"true": x, "fake": fake}
+            fake = true_values[hash].get('fake')
+        else:
+            fake = func(x)
+            true_values[hash] = {"true": x, "fake": fake}
         faked_values[calc_hash(fake)] = {"true": x, "fake": fake}
         return fake
     return wrapper
@@ -103,23 +106,35 @@ def fake_passport(x):
 @record_replacement
 def fake_name(x):
     attempts = 10
-    is_valid = False
     while attempts > 0:
         name = fake.first_name() + " " + fake.last_name()
         if validate_name(name):
             return name
         attempts -= 1
-    print(f"NON_CASHABLE: {name}")
+    logging.error(f"NON_CASHABLE: {name}")
     return name
 @record_replacement
 def fake_first_name(x):
-    return fake.first_name()
-@record_replacement
+    attempts = 10
+    while attempts > 0:
+        name = fake.first_name()
+        if validate_name(name):
+            return name
+        attempts -= 1
+    logging.error(f"NON_CASHABLE: {name}")
+    return name
 def fake_middle_name(x):
     return fake.middle_name()
 @record_replacement
 def fake_last_name(x):
-    return fake.last_name()
+    attempts = 10
+    while attempts > 0:
+        name = fake.last_name()
+        if validate_name(name):
+            return name
+        attempts -= 1
+    logging.error(f"NON_CASHABLE: {name}")
+    return name
 @record_replacement
 def fake_city(x):
     return fake.city()

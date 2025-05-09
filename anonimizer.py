@@ -62,6 +62,7 @@ def anonimizer_factory():
         return final_text, analyzer_results
     def anonimizer(text):
         faked_values.clear()
+        true_values.clear()
         final_text, analyzer_results = analyze(text)
 
         #pii_data = [(final_text[res.start:res.end], res.start, res.end, res.entity_type, res.score, res.recognition_metadata['recognizer_name']) 
@@ -119,12 +120,6 @@ def anonimizer_factory():
                 return defake(item.text)
             else:
                 return item.text
-        
-        deanonimized_entities = [
-            {**item.to_dict(), 'restored': deanonimize(item)}
-            for item in entities]
-        for item in deanonimized_entities:
-            text  = text.replace(item["text"], item["restored"])
 
 
         analized_anon_text, analized_anon_results = analyze(text, ["person", "house_address"])
@@ -137,16 +132,76 @@ def anonimizer_factory():
                     "house_address": OperatorConfig("custom", {"lambda": defake}),
                     })        
 
-        return result.text
+        logging.debug(f"Count of entities: {len(entities)}: {len(faked_values)}: {len(true_values)}")    
+        deanonimized_entities = [
+            {**item.to_dict(), 'restored': deanonimize(item)}
+            for item in entities]
+        for item in deanonimized_entities:
+            text  = text.replace(item["text"], item["restored"])
+
+
+        return result.text, result.items
 
     return anonimizer, deanonimizer
 
+class TextProcessor():
+    def __init__(self, verbose=False):
+        self._anonimizer, self._deanonimizer = anonimizer_factory()
+        self._entities = None
+        self._anonimized_text = ""
+        self._verbose = verbose
+    def anonimize(self, text):
+        self._anonimized_text, self._entities = self._anonimizer(text)
+        if self._verbose:
+            with open("data/crypted.txt", "w", encoding="utf-8") as f:
+                f.write(self._anonimized_text)
+            with open("data/faked_hash.txt", "w", encoding="utf-8") as f:
+                for hash in faked_values:
+                    f.write(f"hash: {hash};  true: {faked_values[hash]['true']};  fake: {faked_values[hash]['fake']}\n")
+            with open("data/true_hash.txt", "w", encoding="utf-8") as f:
+                for hash in true_values:
+                    f.write(f"hash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}\n")
+            with open("data/anon_entities.txt", "w", encoding="utf-8") as f:
+                for e in self._entities:
+                    f.write(f"type: {e.entity_type};  value: {e.text};  operator: {e.operator}\n")
+
+        
+        return self._anonimized_text
+    def deanonimize(self, anonimized_text):
+        if self._entities:
+            deanonimized_text, deanon_entities = self._deanonimizer(anonimized_text, self._entities)
+        
+            if self._verbose:
+                with open("data/anonimized.txt", "w", encoding="utf-8") as f:
+                    f.write(anonimized_text)
+                with open("data/decypted.txt", "w", encoding="utf-8") as f:
+                    f.write(deanonimized_text)
+                with open("data/deanon_entities.txt", "w", encoding="utf-8") as f:
+                    for e in deanon_entities:
+                        f.write(f"type: {e.entity_type};  value: {e.text};  operator: {e.operator}\n")
+        
+            return deanonimized_text
+        else:
+            return ""
+
+
 if __name__ == '__main__':
     from llm import generate_answer
-    
-    anonimizer, deanonimizer = anonimizer_factory()
     with open("data/test_text.txt", encoding="utf-8") as f:
         text = f.read()
+
+    system_prompt = """Ты очень опытный секретарь, который умеет готовить идеальные протоколы встреч.
+Подготовь детальный протокол по транскрипту встречи.
+Обязательно отрази основные тезисы докладов, высказанные возражения, зафиксируй решения и поставленные задачи со сроками и ответственными"""
+
+    processor = TextProcessor(verbose=True)
+    anon = processor.anonimize(text)
+    answer = generate_answer(system_prompt, anon)
+    deanon = processor.deanonimize(answer)
+
+    
+"""
+    anonimizer, deanonimizer = anonimizer_factory()
     
     crypted, entities = anonimizer(text)
     with open("data/crypted.txt", "w", encoding="utf-8") as f:
@@ -160,9 +215,6 @@ if __name__ == '__main__':
         for hash in true_values:
             f.write(f"hash: {hash};  true: {true_values[hash]['true']};  fake: {true_values[hash]['fake']}\n")
 
-    system_prompt = """Ты очень опытный секретарь, который умеет готовить идеальные протоколы встреч.
-Подготовь детальный протокол по транскрипту встречи.
-Обязательно отрази основные тезисы докладов, высказанные возражения, зафиксируй решения и поставленные задачи со сроками и ответственными"""
 
     llm_resp = generate_answer(system_prompt, crypted)
     with open("data/response.txt", "w", encoding="utf-8") as f:
@@ -172,3 +224,4 @@ if __name__ == '__main__':
         f.write(dean_resp)
     print("READY")
 
+"""
