@@ -30,7 +30,7 @@ def merge_spans(results, entity_type, text, delim_pattern=r'^[\s,;:\-]+$'):
 class GlinerRecognizer(EntityRecognizer):
     def __init__(
         self,
-        supported_language: str = "en",
+        supported_language: str = "ru",
         supported_entities: Optional[List[str]] = None,
         check_label_groups: Optional[Tuple[Set, Set]] = None,
         model_path: Optional[str] = "gliner-community/gliner_large-v2.5",
@@ -38,19 +38,20 @@ class GlinerRecognizer(EntityRecognizer):
     ):
         # map them to the Presidio-standard types:
         self.label_map = {
-            "person":             "PERSON",
-            "person_name":        "PERSON",
-            "organization":       "ORGANIZATION",
-            "organization_name":  "ORGANIZATION",
-            "address":            "ADDRESS",
-            "house_address":      "ADDRESS",
-            "city":               "CITY",
+            "person":             "RU_PERSON",
+            "person_name":        "RU_PERSON",
+            "organization":       "RU_ORGANIZATION",
+            "organization_name":  "RU_ORGANIZATION",
+            "address":            "RU_ADDRESS",
+            "house_address":      "RU_ADDRESS",
+            "city":               "RU_CITY",
         }
 
         supported_entities = list(set(self.label_map.values()))
         self.raw_labels = list(self.label_map.keys())
         super().__init__(
             supported_entities=supported_entities,
+            supported_language="en",
             name="GlinerRecognizer",
         )
         self._model = GLiNER.from_pretrained(model_path, local_files_only=True)
@@ -81,7 +82,7 @@ class GlinerRecognizer(EntityRecognizer):
             )
 
         # split ADDRESS vs everything else
-        results = merge_spans(results, "ADDRESS", text)
+        results = merge_spans(results, "RU_ADDRESS", text)
         results.sort(key=lambda r: r.score)
 
         return results

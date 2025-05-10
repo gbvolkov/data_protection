@@ -1,5 +1,4 @@
 from typing import Tuple, Any
-from functools import lru_cache
 
 import config
 
@@ -9,11 +8,6 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 
 from fakers import *
-
-from anonimizer import TextProcessor
-
-import logging
-logger = logging.getLogger(__name__)
 
 # Setting up LLM
 #llm = ChatMistralAI(model="mistral-small-latest", temperature=1, frequency_penalty=0.3)
@@ -29,16 +23,6 @@ llm = ChatYandexGPT(
 """
 llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0.4, frequency_penalty=0.3)
 
-processor = TextProcessor()
-
-def anonymize(text: str, language = "en") -> str:
-    resulting_text = processor.anonimize(text)
-    return resulting_text
-
-def deanonymize(text: str, language = "en") -> str:
-    resulting_text = processor.deanonimize(text)
-    return resulting_text
-
 
 def generate_answer(system_prompt: str, user_request: str) -> Tuple[str, str]:
     """
@@ -52,10 +36,10 @@ def generate_answer(system_prompt: str, user_request: str) -> Tuple[str, str]:
         ]
     )
 
-    chain = {"user_request": lambda txt: anonymize(txt, language="en")} | prompt | llm | (lambda ai_message: deanonymize(ai_message.content))
+    chain = prompt | llm
     response = chain.invoke(user_request)
 
-    llm_resp = response
+    llm_resp = response.content
     return llm_resp
 
 if __name__ == "__main__":

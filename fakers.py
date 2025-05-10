@@ -4,6 +4,7 @@ from faker.providers.person.en import Provider as BasePerson
 import functools
 import spacy
 import pymorphy3
+from rapidfuzz import fuzz, process
 
 import re
 
@@ -41,6 +42,9 @@ def validate_name(name):
     except:
         return False
 
+def validate_name_cusom(name):
+    return True
+
 
 def calc_hash(text):
     VOWELS = set("АЕЁИОУЫЭЮЯаеёиоуыэюя")
@@ -76,6 +80,20 @@ def defake(fake):
         logger.debug(f"FAKE NOT FOUND: request: {fake}; hash: {hash}")
         return fake
 
+def defake_fuzzy(fake):
+    if fake == 'PII':
+        return fake
+    items = list(faked_values.items())  
+    fakes = [entry["fake"] for _, entry in items]
+    best_fake = process.extractOne(fake, fakes, scorer=fuzz.partial_token_sort_ratio, score_cutoff=60)
+    if best_fake:
+        true_value = [entry["true"] for _, entry in items][best_fake[2]]
+        logger.debug(f"Fuzzy search result: request: {fake}; found: {best_fake[0]}; score: {best_fake[1]}; true_value: {true_value}")
+        return true_value
+        #faked_entries = [v for v in faked_values.values() if v["fake"] == best_fake[0]]
+    else:
+        return defake(fake)
+
 def record_replacement(func):
 
     @functools.wraps(func)
@@ -89,6 +107,15 @@ def record_replacement(func):
             fake = func(x)
             true_values[hash] = {"true": x, "fake": fake}
         faked_values[calc_hash(fake)] = {"true": x, "fake": fake}
+        return fake
+    return wrapper
+
+def record_replacement_custom(func):
+    @functools.wraps(func)
+    def wrapper(x):
+        if x == "PII":
+            return x
+        fake = func(x)
         return fake
     return wrapper
 
@@ -172,6 +199,9 @@ def fake_ip(x):
 @record_replacement
 def fake_url(x):
     return fake.url()
+@record_replacement
+def fake_organization(x):
+    return fake.company()
 
 if __name__ == '__main__':
     import time

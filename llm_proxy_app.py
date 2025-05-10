@@ -1,7 +1,12 @@
 from flask import Flask
 import config
+#import os
+#os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
+#os.environ["LANGCHAIN_TRACING_V2"] = "true"
+
 from routes import main_bp
 from logger_factory import setup_logging
+
 
 
 def create_app():

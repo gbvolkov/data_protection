@@ -46,6 +46,22 @@ ru_internal_passport_recognizer = PatternRecognizer(
     name="RUPassportRecognizer",
 )
 
+ru_phone_recognizer = PatternRecognizer(
+    supported_entity="PHONE_NUMBER",
+    patterns=[
+        Pattern(
+            name="any",
+            regex=r"\b[+]{1}(?:[0-9\-\(\)\\.]\s?){6,15}[0-9]{1}\b",
+            score=0.4
+        ),
+        Pattern(
+            name="any",
+            regex=r"\b([+]{1})?(?:[0-9\-\(\)\\.]\s?){6,15}[0-9]{1}\b",
+            score=0.2
+        ),
+    ],
+    name="RUPhoneRecognizer",
+)
 
 # ——— 2) SNILS with checksum via petrovna ———
 class SNILSRecognizer(EntityRecognizer):
@@ -185,6 +201,54 @@ class RUBankAccountRecognizer(EntityRecognizer):
             results.append(
                 RecognizerResult(
                     entity_type="RU_BANK_ACC",
+                    start=m.start(),
+                    end=m.end(),
+                    score=score,
+                )
+            )
+        return results
+
+def validate_card(card_no: str) -> bool:
+    # remove spaces or hyphens
+    digits = [int(ch) for ch in card_no if ch.isdigit()]
+    checksum = 0
+    # process from rightmost, i=0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1:
+            d *= 2
+            if d > 9:
+                d -= 9
+        checksum += d
+    return checksum % 10 == 0
+
+class RUCreditCardRecognizer(EntityRecognizer):
+    def load(self) -> None:
+        """No loading is required."""
+        pass
+    def __init__(self, supported_entities = ["CREDIT_CARD"]):
+        super().__init__(
+            supported_entities=supported_entities,
+            #supported_language=["ru", "en"],
+            name="CommonCreditCardRecognizer",
+        )
+        # match formats like 123-456-789 00 or 12345678900
+        self.pattern = re.compile(r"\b(\d(?:[ .-]?\d){12})\b|\b(\d(?:[ .-]?\d){14})\b|\b(\d(?:[ .-]?\d){15})\b|\b(\d(?:[ .-]?\d){17})\b|\b(\d(?:[ .-]?\d){18})\b")
+
+    def analyze(self, text: str, entities=None, **kwargs):
+        #self.pattern = re.compile(r"\b\d{3}-?\d{3}-?\d{3}[- ]?\d{2}\b")
+        results = []
+        for m in self.pattern.finditer(text):
+            raw = re.sub(r"[ .-]", "", m.group())
+            score = 0.999
+            if not validate_card(raw):
+                # invalid — skip
+                score = score / 10
+            # if caller asked to filter to a specific entity list:
+            if entities and "CREDIT_CARD" not in entities:
+                continue
+            results.append(
+                RecognizerResult(
+                    entity_type="CREDIT_CARD",
                     start=m.start(),
                     end=m.end(),
                     score=score,

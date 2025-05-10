@@ -22,6 +22,7 @@ spacy
 gliner
 flair
 faker
+rapidfuzz
 
 petrovna
 pytrovich

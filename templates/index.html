@@ -22,26 +22,13 @@
             <textarea class="container" name="user_request" rows="10" cols="60">{{ user_request or '' }}</textarea>
             </label><br><br>
 
-            <button type="submit" name="action" value="anonymize">Anonymize</button>
             <button type="submit" name="action" value="go">GO</button><br><br>
-
-            <label>Anonymized Request:<br>
-            <textarea class="container" name="anonymized_request" rows="10" cols="60" readonly>{{ anonymized_request or '' }}</textarea>
-            </label><br><br>
 
             {% if llm_response %}
             <label>View:</label>
-            <input type="radio" name="view" value="llm" checked onchange="toggleResponses()"> LLM
-            <input type="radio" name="view" value="dean" onchange="toggleResponses()"> Deanonymized<br><br>
-
             <div id="llm_response">
-                <label>LLM Response:<br>
-                <textarea class="container" rows="20" cols="60" readonly>{{ llm_response }}</textarea>
-                </label><br><br>
-            </div>
-            <div id="dean_response" hidden>
                 <label>Deanonymized Response:<br>
-                <textarea class="container" rows="20" cols="60" readonly>{{ dean_response }}</textarea>
+                <textarea class="container" rows="20" cols="60" readonly>{{ llm_response }}</textarea>
                 </label><br><br>
             </div>
             {% endif %}

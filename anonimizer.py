@@ -14,6 +14,10 @@ from transformers import AutoTokenizer
 from fakers import *
 import config
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 def length_factory(tokenizer: Any = None):
     @lru_cache(maxsize=5000, typed=True)
     def _len(text: str) -> int:
@@ -75,17 +79,11 @@ def anonimizer_factory():
         result = engine.anonymize(
             text=final_text,
             analyzer_results=analyzer_results,
-            #operators={"PERSON": OperatorConfig("replace", {"new_value": "BIP"})},
             operators={"DEFAULT": OperatorConfig("encrypt", {"key": cr_key}),
-                    #"FIRST_NAME": OperatorConfig("custom", {"lambda": fake_first_name}),
-                    #"MIDDLE_NAME": OperatorConfig("custom", {"lambda": fake_middle_name}),
-                    #"LAST_NAME": OperatorConfig("custom", {"lambda": fake_last_name}),
-                    "ORGANIZATION": OperatorConfig("keep"),
-                    "CITY": OperatorConfig("keep"),
-                    "PERSON": OperatorConfig("custom", {"lambda": fake_name}),
-                    #"STREET": OperatorConfig("custom", {"lambda": fake_street}),
-                    "ADDRESS": OperatorConfig("custom", {"lambda": fake_house}),
-                    #"LOCATION": OperatorConfig("custom", {"lambda": fake_location}),
+                    "RU_ORGANIZATION": OperatorConfig("custom", {"lambda": fake_organization}),
+                    "RU_CITY": OperatorConfig("keep"),
+                    "RU_PERSON": OperatorConfig("custom", {"lambda": fake_name}),
+                    "RU_ADDRESS": OperatorConfig("custom", {"lambda": fake_house}),
                     "CREDIT_CARD": OperatorConfig("custom", {"lambda": fake_card}),
                     "PHONE_NUMBER": OperatorConfig("custom", {"lambda": fake_phone}),
                     "IP_ADDRESS": OperatorConfig("custom", {"lambda": fake_ip}),
@@ -96,6 +94,7 @@ def anonimizer_factory():
                     "RU_BANK_ACC": OperatorConfig("custom", {"lambda": fake_account}),
                     })
 
+        logger.debug(f"\n=============================ANONIMIZATION COMPLETE================================")
         return result.text, result.items
     
     def deanonimizer_simple(text, entities):
@@ -135,19 +134,14 @@ def anonimizer_factory():
             analyzer_results=analized_anon_results,
 
             operators={"DEFAULT": OperatorConfig("keep"),
-                    #"FIRST_NAME": OperatorConfig("custom", {"lambda": fake_first_name}),
-                    #"MIDDLE_NAME": OperatorConfig("custom", {"lambda": fake_middle_name}),
-                    #"LAST_NAME": OperatorConfig("custom", {"lambda": fake_last_name}),
-                    "ORGANIZATION": OperatorConfig("keep"),
-                    "CITY": OperatorConfig("keep"),
-                    "PERSON": OperatorConfig("custom", {"lambda": defake}),
-                    #"STREET": OperatorConfig("custom", {"lambda": fake_street}),
-                    "ADDRESS": OperatorConfig("custom", {"lambda": defake}),
-                    #"LOCATION": OperatorConfig("custom", {"lambda": fake_location}),
+                    "RU_ORGANIZATION": OperatorConfig("custom", {"lambda": defake_fuzzy}),
+                    "RU_CITY": OperatorConfig("keep"),
+                    "RU_PERSON": OperatorConfig("custom", {"lambda": defake_fuzzy}),
+                    "RU_ADDRESS": OperatorConfig("custom", {"lambda": defake_fuzzy}),
                     "CREDIT_CARD": OperatorConfig("custom", {"lambda": defake}),
-                    "PHONE_NUMBER": OperatorConfig("custom", {"lambda": defake}),
+                    "PHONE_NUMBER": OperatorConfig("custom", {"lambda": defake_fuzzy}),
                     "IP_ADDRESS": OperatorConfig("custom", {"lambda": defake}),
-                    "URL": OperatorConfig("custom", {"lambda": defake}),
+                    "URL": OperatorConfig("custom", {"lambda": defake_fuzzy}),
                     "RU_PASSPORT": OperatorConfig("custom", {"lambda": defake}),
                     "SNILS": OperatorConfig("custom", {"lambda": defake}),
                     "INN": OperatorConfig("custom", {"lambda": defake}),
@@ -179,7 +173,7 @@ class TextProcessor():
         self._entities = None
         self._anonimized_text = ""
         self._verbose = verbose
-    def anonimize(self, text):
+    def anonimize(self, text: str) -> str:
         logger.debug(f"\n\n=============================ANONIMIZATION================================")
         logger.debug(    f"\n==================================================================INITIAL TEXT:\n{text}\n\n")
         self._anonimized_text, self._entities = self._anonimizer(text)
@@ -198,7 +192,7 @@ class TextProcessor():
 
         
         return self._anonimized_text
-    def deanonimize(self, anonimized_text):
+    def deanonimize(self, anonimized_text: str) -> str:
         if self._entities:
             logger.debug(f"\n\n===========================DEANONIMIZATION================================")
             logger.debug(  f"===========================================================ANONIMIZED_TEXT:\n{anonimized_text}\n\n")
@@ -240,7 +234,7 @@ if __name__ == '__main__':
 #    analized_anon_text, analized_anon_results = analyze(text)
 #    for r in analized_anon_results:
 #        print(f"{r.entity_type}: `{analized_anon_text[r.start:r.end]}` (score={r.score:.2f})) , Recognizer:{r.recognition_metadata['recognizer_name']}")
-    from llm import generate_answer
+    from llm_simplistic import generate_answer
     text = """Клиент Степан Степанов (4519227557) по поручению Ивана Иванова обратился в "Интерлизинг" с предложением купить трактор. 
     Для оплаты используется его карта 4095260993934932. 
     Позвоните ему 9867777777 или 9857777237.
@@ -256,7 +250,7 @@ if __name__ == '__main__':
     system_prompt = """Преобразуй текст в записку для записи в CRM. Текст должен быть хорошо структурирован и понятен с первого взгляда"""
 
     processor = TextProcessor(verbose=True)
-    for i in range(0,15):
+    for i in range(0,31):
         anon = processor.anonimize(text)
         logger.info("Anonimized")
         answer = generate_answer(system_prompt, anon)

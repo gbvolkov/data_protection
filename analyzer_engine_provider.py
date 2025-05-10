@@ -14,9 +14,11 @@ from presidio_analyzer.nlp_engine import (
 import spacy
 from recognizers.regex_recognisers import (
     ru_internal_passport_recognizer, 
+    ru_phone_recognizer,
     SNILSRecognizer,
     INNRecognizer,
-    RUBankAccountRecognizer
+    RUBankAccountRecognizer,
+    RUCreditCardRecognizer
 )
 
 
@@ -193,7 +195,7 @@ def create_nlp_engine_with_gliner(
     nlp_configuration = {
         "nlp_engine_name": "spacy",
         #"models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
-        "models": [{"lang_code": "en", "model_name": "ru_core_news_sm"}],
+        "models": [{"lang_code": "en", "model_name": "ru_core_news_lg"}],
     }
     registry.add_recognizer(gliner_recognizer)
     registry.remove_recognizer("SpacyRecognizer")
@@ -253,9 +255,11 @@ def analyzer_engine(
     )
     analyzer = AnalyzerEngine(nlp_engine=nlp_engine, registry=registry)
     analyzer.registry.add_recognizer(ru_internal_passport_recognizer)
+    analyzer.registry.add_recognizer(ru_phone_recognizer)
     analyzer.registry.add_recognizer(SNILSRecognizer())
     analyzer.registry.add_recognizer(INNRecognizer())
     analyzer.registry.add_recognizer(RUBankAccountRecognizer())
+    analyzer.registry.add_recognizer(RUCreditCardRecognizer())
     
     return analyzer
 
